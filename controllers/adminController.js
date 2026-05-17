@@ -173,3 +173,112 @@ exports.getAllAppointments = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+const bcrypt = require("bcryptjs");
+
+exports.createDoctor = async (req, res) => {
+  try {
+    const { name, username, email, password, petName, specialization, experience, fees, profileImage } = req.body;
+
+    const userExists = await User.findOne({ $or: [{ email }, { username }] });
+    if (userExists) {
+      return res.status(400).json({ message: "User with this email or username already exists" });
+    }
+
+    const user = await User.create({
+      name,
+      username,
+      email,
+      password,
+      petName,
+      role: "doctor",
+      ...(profileImage && { profileImage })
+    });
+
+    const doctor = await Doctor.create({
+      userId: user._id,
+      specialization,
+      experience,
+      fees,
+      isApproved: "approved", // Admin creates it, so it's auto-approved
+    });
+
+    res.status(201).json({
+      status: "success",
+      data: { doctor, user },
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.updateAppointmentStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const appointment = await Appointment.findByIdAndUpdate(
+      req.params.id,
+      { status },
+      { new: true }
+    );
+
+    if (!appointment) return res.status(404).json({ message: "Appointment not found" });
+
+    res.status(200).json({
+      status: "success",
+      data: { appointment },
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.updateDoctor = async (req, res) => {
+  try {
+    const { name, email, specialization, experience, fees, profileImage } = req.body;
+    
+    const doctor = await Doctor.findById(req.params.id);
+    if (!doctor) return res.status(404).json({ message: "Doctor not found" });
+
+    // Update Doctor specific fields
+    doctor.specialization = specialization || doctor.specialization;
+    doctor.experience = experience || doctor.experience;
+    doctor.fees = fees || doctor.fees;
+    await doctor.save();
+
+    // Update User specific fields
+    const updateData = {
+      ...(name && { name }),
+      ...(email && { email }),
+      ...(profileImage && { profileImage })
+    };
+    
+    const user = await User.findByIdAndUpdate(doctor.userId, updateData, { new: true });
+
+    res.status(200).json({
+      status: "success",
+      data: { doctor, user },
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.deleteDoctor = async (req, res) => {
+  try {
+    const doctor = await Doctor.findById(req.params.id);
+    if (!doctor) return res.status(404).json({ message: "Doctor not found" });
+
+    // Find the associated user and delete them as well
+    const userId = doctor.userId;
+    
+    await Doctor.findByIdAndDelete(req.params.id);
+    await User.findByIdAndDelete(userId);
+
+    res.status(204).json({
+      status: "success",
+      data: null,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

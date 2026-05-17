@@ -7,6 +7,11 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: [true, "Please provide your name"],
     },
+    username: {
+      type: String,
+      required: [true, "Please provide your username"],
+      unique: true,
+    },
     email: {
       type: String,
       required: [true, "Please provide your email"],
@@ -17,6 +22,11 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: [true, "Please provide a password"],
       minlength: 8,
+      select: false,
+    },
+    petName: {
+      type: String,
+      required: [true, "Please provide your pet name for security"],
       select: false,
     },
     role: {
@@ -39,10 +49,14 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Encrypt password before saving
+// Encrypt password and petName before saving
 userSchema.pre("save", async function () {
-  if (!this.isModified("password")) return;
-  this.password = await bcrypt.hash(this.password, 12);
+  if (this.isModified("password")) {
+    this.password = await bcrypt.hash(this.password, 12);
+  }
+  if (this.isModified("petName")) {
+    this.petName = await bcrypt.hash(this.petName.toLowerCase(), 12);
+  }
 });
 
 // Instance method to check password

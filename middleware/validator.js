@@ -9,9 +9,15 @@ exports.validate = (schema) => (req, res, next) => {
     });
     next();
   } catch (error) {
+    if (error && error.errors) {
+      return res.status(400).json({
+        status: "error",
+        message: error.errors.map((err) => `${err.path.join(".")}: ${err.message}`).join(", "),
+      });
+    }
     return res.status(400).json({
       status: "error",
-      message: error.errors.map((err) => `${err.path.join(".")}: ${err.message}`).join(", "),
+      message: error.message || "Validation failed",
     });
   }
 };
@@ -20,9 +26,11 @@ exports.validate = (schema) => (req, res, next) => {
 exports.registerSchema = z.object({
   body: z.object({
     name: z.string().min(2),
+    username: z.string().min(3),
     email: z.string().email(),
     password: z.string().min(8),
-    role: z.enum(["patient", "doctor", "admin"]),
+    petName: z.string().min(2),
+    role: z.enum(["patient", "doctor", "admin"]).optional(),
   }),
 });
 
